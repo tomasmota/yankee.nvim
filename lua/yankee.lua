@@ -1,6 +1,5 @@
 local M = {}
 
--- Default options
 local default_opts = {
   keymaps = {
     yank_file = "<leader>yy",
@@ -8,7 +7,6 @@ local default_opts = {
   }
 }
 
--- Store the original formatting function
 local function format_single_file(filename, content, lang)
   return string.format(
     "Filename: %s\n```%s\n%s\n```",
@@ -18,18 +16,16 @@ local function format_single_file(filename, content, lang)
   )
 end
 
--- Function to get the relative path of a file
 local function get_relative_path(full_path)
   local cwd = vim.fn.getcwd()
   return full_path:sub(#cwd + 2)
 end
 
--- Function to get file extension
 local function get_file_extension(filename)
   return filename:match("%.([^%.]+)$") or ""
 end
 
--- Function to determine the appropriate markdown language identifier
+-- determines markdown language identifier
 local function get_language_identifier(filename)
   local ext_to_lang = {
     lua = 'lua',
@@ -63,7 +59,6 @@ local function get_language_identifier(filename)
   return ext_to_lang[ext] or ext
 end
 
--- Function to read file content
 local function read_file_content(filepath)
   local file = io.open(filepath, "r")
   if not file then return nil end
@@ -72,7 +67,6 @@ local function read_file_content(filepath)
   return content
 end
 
--- Function to format multiple files
 local function format_multiple_files(files)
   local parts = {}
 
@@ -89,8 +83,7 @@ local function format_multiple_files(files)
   return table.concat(parts, "\n")
 end
 
--- Main function to yank single file content
-function M.yank_for_llm()
+function M.yank_single()
   local filename = get_relative_path(vim.fn.expand('%:p'))
   local content = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n')
   local lang = get_language_identifier(filename)
@@ -100,7 +93,6 @@ function M.yank_for_llm()
   vim.notify('File content yanked for LLM with formatting', vim.log.levels.INFO)
 end
 
--- Function to handle multiple file selection and yanking
 function M.yank_multiple()
   -- Check if telescope is available
   local has_telescope, telescope = pcall(require, 'telescope.builtin')
@@ -112,7 +104,7 @@ function M.yank_multiple()
   local actions = require('telescope.actions')
   local action_state = require('telescope.actions.state')
 
-  telescope.find_files({
+  telescope.git_files({
     attach_mappings = function(prompt_bufnr, map)
       -- Add a custom mapping for selecting/deselecting items
       map('i', '<tab>', function()
@@ -163,7 +155,7 @@ function M.setup(opts)
 
   -- Set up keymaps
   if opts.keymaps.yank_file then
-    vim.keymap.set('n', opts.keymaps.yank_file, M.yank_for_llm, {
+    vim.keymap.set('n', opts.keymaps.yank_file, M.yank_single, {
       desc = "Yank current file with LLM formatting",
       silent = true
     })
@@ -177,7 +169,7 @@ function M.setup(opts)
   end
 
   -- Create commands
-  vim.api.nvim_create_user_command('Yankee', M.yank_for_llm, {})
+  vim.api.nvim_create_user_command('Yankee', M.yank_single, {})
   vim.api.nvim_create_user_command('YankeeMulti', M.yank_multiple, {})
 end
 
