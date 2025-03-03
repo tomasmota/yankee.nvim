@@ -106,21 +106,6 @@ function M.yank_multiple()
 
   telescope.git_files({
     attach_mappings = function(prompt_bufnr, map)
-      -- Add a custom mapping for selecting/deselecting items
-      map('i', '<tab>', function()
-        local picker = action_state.get_current_picker(prompt_bufnr)
-        local selections = picker:get_multi_selection()
-        local entry = action_state.get_selected_entry()
-
-        if entry then
-          if vim.tbl_contains(selections, entry) then
-            actions.remove_selection(prompt_bufnr)
-          else
-            actions.add_selection(prompt_bufnr)
-          end
-        end
-      end)
-
       -- Add custom mapping for completing selection
       map('i', '<cr>', function()
         local picker = action_state.get_current_picker(prompt_bufnr)
