@@ -122,7 +122,9 @@ function M.yank_multiple()
           local formatted_content = format_multiple_files(files)
           vim.fn.setreg('+', formatted_content)
 
-          vim.notify(string.format('Yanked %d files with formatting', #files), vim.log.levels.INFO)
+          vim.schedule(function()
+            vim.notify(string.format('Yanked %d files with formatting', file_count), vim.log.levels.INFO)
+          end)
         else
           -- If no files are selected, act as normal selection
           actions.select_default(prompt_bufnr)
@@ -159,4 +161,3 @@ function M.setup(opts)
 end
 
 return M
-
