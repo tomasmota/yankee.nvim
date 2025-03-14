@@ -112,19 +112,25 @@ function M.yank_multiple()
         local selections = picker:get_multi_selection()
 
         if #selections > 0 then
-          actions.close(prompt_bufnr)
+          -- Store the number of files for use after closing the prompt
+          local num_files = #selections
 
-          -- Format and yank the selected files
+          -- Get file paths before closing the prompt
           local files = vim.tbl_map(function(selection)
             return selection.path
           end, selections)
 
+          -- Close the prompt
+          actions.close(prompt_bufnr)
+
+          -- Format and yank the selected files
           local formatted_content = format_multiple_files(files)
           vim.fn.setreg('+', formatted_content)
 
-          vim.schedule(function()
-            vim.notify(string.format('Yanked %d files with formatting', file_count), vim.log.levels.INFO)
-          end)
+          -- Use vim.schedule with a slight delay to ensure notification appears
+          vim.defer_fn(function()
+            vim.notify(string.format('Yanked %d files with formatting', num_files), vim.log.levels.INFO)
+          end, 100)
         else
           -- If no files are selected, act as normal selection
           actions.select_default(prompt_bufnr)
