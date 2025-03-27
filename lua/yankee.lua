@@ -3,7 +3,9 @@ local M = {}
 local default_opts = {
   keymaps = {
     yank_file = "<leader>yy",
-    yank_multiple = "<leader>ym"
+    yank_multiple = "<leader>ym",
+    yank_all = "<leader>ya",
+    yank_hidden = "<leader>yh"
   }
 }
 
@@ -142,11 +144,76 @@ function M.yank_multiple()
   })
 end
 
--- Setup function
+function M.yank_repository_files(include_hidden)
+  local git_exists = vim.fn.executable('git') == 1
+  if not git_exists then
+    vim.notify('Git is required for listing all repository files', vim.log.levels.ERROR)
+    return
+  end
+
+  local is_git_repo = vim.fn.system('git rev-parse --is-inside-work-tree'):match('true')
+  if not is_git_repo then
+    vim.notify('Not in a git repository', vim.log.levels.ERROR)
+    return
+  end
+
+  local handle = io.popen('git ls-files')
+  if not handle then
+    vim.notify('Failed to run git command', vim.log.levels.ERROR)
+    return
+  end
+
+  local result = handle:read('*a')
+  handle:close()
+
+  local files = {}
+  for file in result:gmatch('[^\r\n]+') do
+    local should_include = true
+
+    -- If we're not including hidden files, check each path component
+    if not include_hidden then
+      for part in file:gmatch('([^/]+)') do
+        if part:sub(1, 1) == '.' then
+          should_include = false
+          break
+        end
+      end
+    end
+
+    if should_include then
+      local full_path = vim.fn.getcwd() .. '/' .. file
+      table.insert(files, full_path)
+    end
+  end
+
+  if #files == 0 then
+    local message = include_hidden
+        and 'No files found in repository'
+        or 'No non-hidden files found in repository'
+    vim.notify(message, vim.log.levels.WARN)
+    return
+  end
+
+  local formatted_content = format_multiple_files(files)
+  vim.fn.setreg('+', formatted_content)
+
+  local message = include_hidden
+      and string.format('Yanked %d files (including hidden) with formatting', #files)
+      or string.format('Yanked %d non-hidden files with formatting', #files)
+  vim.notify(message, vim.log.levels.INFO)
+end
+
+function M.yank_all()
+  M.yank_repository_files(false)
+end
+
+function M.yank_all_with_hidden()
+  M.yank_repository_files(true)
+end
+
 function M.setup(opts)
   opts = vim.tbl_deep_extend("force", default_opts, opts or {})
 
-  -- Set up keymaps
   if opts.keymaps.yank_file then
     vim.keymap.set('n', opts.keymaps.yank_file, M.yank_single, {
       desc = "Yank current file with LLM formatting",
@@ -161,9 +228,26 @@ function M.setup(opts)
     })
   end
 
+  if opts.keymaps.yank_all then
+    vim.keymap.set('n', opts.keymaps.yank_all, M.yank_all, {
+      desc = "Yank all non-hidden files in repository with LLM formatting",
+      silent = true
+    })
+  end
+
+  if opts.keymaps.yank_hidden then
+    vim.keymap.set('n', opts.keymaps.yank_hidden, M.yank_all_with_hidden, {
+      desc = "Yank all files including hidden ones in repository with LLM formatting",
+      silent = true
+    })
+  end
+
   -- Create commands
   vim.api.nvim_create_user_command('Yankee', M.yank_single, {})
   vim.api.nvim_create_user_command('YankeeMulti', M.yank_multiple, {})
+  vim.api.nvim_create_user_command('YankeeAll', M.yank_all, {})
+  vim.api.nvim_create_user_command('YankeeHidden', M.yank_all_with_hidden, {})
 end
 
 return M
+
